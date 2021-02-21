@@ -1,0 +1,45 @@
+defmodule ElixirEsGrpc do
+  alias EventStore.Client.Shared
+  alias EventStore.Client.Streams
+  @moduledoc """
+  Documentation for `ElixirEsGrpc`.
+  """
+
+  @doc """
+  Hello world.
+
+  ## Examples
+
+      iex> ElixirEsGrpc.hello()
+      :world
+
+  """
+  def hello do
+    :world
+  end
+
+  def doit do
+   {:ok, channel} = GRPC.Stub.connect("localhost:2113")
+
+
+
+    id = Shared.UUID.new(value: {:string, "event_id"})
+    stream_id = Shared.StreamIdentifier.new(streamName: "id1")
+    options = EventStore.Client.Streams.AppendReq.Options.new(expected_stream_revision: 1, stream_identifier: stream_id)
+    IO.inspect(options)
+    reg = Streams.AppendReq.ProposedMessage.new(data: "samma", id: id)
+
+    Streams.Streams.Service.__rpc_calls__
+    IO.inspect reg
+
+    Streams.AppendReq.ProposedMessage.encode(reg) |> IO.inspect
+
+
+ end
+
+    
+
+
+
+  
+end
