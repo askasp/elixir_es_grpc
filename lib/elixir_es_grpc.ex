@@ -1,5 +1,6 @@
+
 defmodule ElixirEsGrpc do
-    use GenServer
+        use GenServer
     alias EventStore.Client.Shared
     alias EventStore.Client.Streams
 
@@ -7,30 +8,29 @@ defmodule ElixirEsGrpc do
   Documentation for `ElixirEsGrpc`.
   """
 
-  @doc """
-  Hello world.
 
-  ## Examples
-
-      iex> ElixirEsGrpc.hello()
-      :world
-
-  """
-  def hello do
-    :world
+  def start_link(opts) do
+      GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
-
-  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-
 
   def append_events(stream_id, events, expected_version) do
       GenServer.call(__MODULE__, {:append_events, stream_id, events, expected_version})
   end
 
+  def read_and_stay_subsrcibed() do
+      GenServer.call(__MODULE__, {:read_and_stay_subscribed, self()})
+  end
+
+
   def init(opts) do
-      IO.inspect opts
       {:ok, channel} = GRPC.Stub.connect("localhost:2113")
       {:ok, channel}
+  end
+
+  def handle_call({:read_and_stay_subscribed, pid}, _from, state) do
+    spec = {ElixirEsGrpc.Subscription, channel: state, subscriber: pid, read_params: %{stream: "all", from_event_number: 0}}
+    {:ok, pid} = DynamicSupervisor.start_child(ElixirEsGrpc.SubscriptionSupervisor, spec)
+    {:reply, :ok, state}
   end
 
   def handle_call({:append_events, stream_id, events, expected_version}, _from, channel) do
@@ -40,7 +40,7 @@ defmodule ElixirEsGrpc do
         :any -> {:any, Shared.Empty.new()}
         :no_stream -> {:no_stream, Shared.Empty.new()}
         :stream_exists -> {:stream_exists, Shared.Empty.new()}
-        {:revision, nr} -> {:revision_nr}
+        {:revision, nr} -> {:revision, nr}
     end
 
     options =
@@ -62,8 +62,6 @@ defmodule ElixirEsGrpc do
 
     GRPC.Stub.end_stream(stream)
     {:ok, reply_enum} = GRPC.Stub.recv(stream)
-    IO.puts("writing write return")
-    IO.inspect(reply_enum)
     {:reply, :ok, channel}
    end
 
@@ -86,26 +84,24 @@ defmodule ElixirEsGrpc do
       )
     Streams.AppendReq.new(content: {:proposed_message, reg})
    end
-
  
-  def doit do
-    {:ok, _} = GenServer.start_link(ElixirEsGrpc,[connection: "rstsr"])
+    # {:ok, _} = GenServer.start_link(ElixirEsGrpc,[connection: "rstsr"])
 
-    all_opt = Streams.ReadReq.Options.AllOptions.new(all_option: {:start, Shared.Empty.new()})
-    IO.inspect(all_opt)
+    # all_opt = Streams.ReadReq.Options.AllOptions.new(all_option: {:start, Shared.Empty.new()})
+    # IO.inspect(all_opt)
 
-    read_opt =
-      Streams.ReadReq.Options.new(
-        stream_option: {:all, all_opt},
-        resolve_links: false,
-        count_option: {:count, 1000},
-        uuid_option: Streams.ReadReq.Options.UUIDOption.new(content: {:string, Shared.Empty.new()}),
-        filter_option: {:no_filter, Shared.Empty.new()}
-      )
+    # read_opt =
+    #   Streams.ReadReq.Options.new(
+    #     stream_option: {:all, all_opt},
+    #     resolve_links: false,
+    #     count_option: {:count, 1000},
+    #     uuid_option: Streams.ReadReq.Options.UUIDOption.new(content: {:string, Shared.Empty.new()}),
+    #     filter_option: {:no_filter, Shared.Empty.new()}
+    #   )
 
-    IO.inspect(read_opt)
+    # IO.inspect(read_opt)
 
-    read_req = Streams.ReadReq.new(options: read_opt)
+    # read_req = Streams.ReadReq.new(options: read_opt)
     #{:ok, reply_enum} = Streams.Streams.Stub.read(channel, read_req)
     #replies = Enum.map(reply_enum, fn({:ok, reply}) -> reply end)
     #IO.inspect(replies)
@@ -138,6 +134,11 @@ defmodule ElixirEsGrpc do
 
 
 
+#end
 
-
-end
+  defmodule Counter do
+      defmodule Create do
+          @derive Jason.Encoder
+          defstruct [:id]
+      end
+  end

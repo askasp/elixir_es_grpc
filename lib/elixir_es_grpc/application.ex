@@ -8,6 +8,8 @@ defmodule ElixirEsGrpc.Application do
   @impl true
   def start(_type, _args) do
     children = [
+    {ElixirEsGrpc, connection: "srtsr"},
+    {DynamicSupervisor, strategy: :one_for_one, name: ElixirEsGrpc.SubscriptionSupervisor}
       # Starts a worker by calling: ElixirEsGrpc.Worker.start_link(arg)
       # {ElixirEsGrpc.Worker, arg}
     ]
